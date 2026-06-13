@@ -27,22 +27,38 @@ lazy_static! {
     };
 }
 
-pub fn get_icon_for_file(path: impl AsRef<Path>) -> Option<u64> {
-    let path = path.as_ref();
-    let basename = path.file_name().unwrap();
-
-    FILENAME_ICONS.get(basename.as_bytes()).or_else(|| {
-        let ext = path.extension().unwrap();
-
-        EXT_ICONS.get(ext.as_bytes())
-    })
+#[derive(thiserror::Error, Debug, PartialEq)]
+pub enum IconError {
+    #[error("User provided invalid path")]
+    InvalidPath,
+    #[error("Icon for {0} not found")]
+    IconNotFound(String),
 }
 
-pub fn get_icon_for_folder(path: impl AsRef<Path>) -> Option<u64> {
+pub fn get_icon_for_file(path: impl AsRef<Path>) -> Result<u64, IconError> {
     let path = path.as_ref();
-    let basename = path.file_name().unwrap();
+    let basename = path.file_name().ok_or(IconError::InvalidPath)?;
 
-    FOLDER_ICONS.get(basename.as_bytes())
+    FILENAME_ICONS
+        .get(basename.as_bytes())
+        .or_else(|| {
+            path.extension()
+                .and_then(|ext| EXT_ICONS.get(ext.as_bytes()))
+        })
+        .ok_or(IconError::IconNotFound(
+            path.to_str().unwrap_or("unparsable path").to_string(),
+        ))
+}
+
+pub fn get_icon_for_folder(path: impl AsRef<Path>) -> Result<u64, IconError> {
+    let path = path.as_ref();
+    let basename = path.file_name().ok_or(IconError::InvalidPath)?;
+
+    FOLDER_ICONS
+        .get(basename.as_bytes())
+        .ok_or(IconError::IconNotFound(
+            path.to_str().unwrap_or("unparsable path").to_string(),
+        ))
 }
 
 #[cfg(test)]
@@ -51,23 +67,23 @@ mod test {
 
     #[test]
     fn common_languages() {
-        assert_eq!(get_icon_for_file("./test.js"), Some(296));
-        assert_eq!(get_icon_for_file("./test.ts"), Some(633));
-        assert_eq!(get_icon_for_file("./test.jsx"), Some(508));
-        assert_eq!(get_icon_for_file("./test.tsx"), Some(529));
-        assert_eq!(get_icon_for_file("./test.json"), Some(284));
-        assert_eq!(get_icon_for_file("./test.yaml"), Some(708));
-        assert_eq!(get_icon_for_file("./test.yml"), Some(708));
-        assert_eq!(get_icon_for_file("./test.md"), Some(361));
-        assert_eq!(get_icon_for_file("./test.css"), Some(116));
-        assert_eq!(get_icon_for_file("./test.html"), Some(255));
-        assert_eq!(get_icon_for_file("./test.rs"), Some(525));
+        assert_eq!(get_icon_for_file("./test.js"), Ok(296));
+        assert_eq!(get_icon_for_file("./test.ts"), Ok(633));
+        assert_eq!(get_icon_for_file("./test.jsx"), Ok(508));
+        assert_eq!(get_icon_for_file("./test.tsx"), Ok(529));
+        assert_eq!(get_icon_for_file("./test.json"), Ok(284));
+        assert_eq!(get_icon_for_file("./test.yaml"), Ok(708));
+        assert_eq!(get_icon_for_file("./test.yml"), Ok(708));
+        assert_eq!(get_icon_for_file("./test.md"), Ok(361));
+        assert_eq!(get_icon_for_file("./test.css"), Ok(116));
+        assert_eq!(get_icon_for_file("./test.html"), Ok(255));
+        assert_eq!(get_icon_for_file("./test.rs"), Ok(525));
     }
 
     #[test]
     fn common_folders() {
-        assert_eq!(get_icon_for_folder("./.github"), Some(862));
-        assert_eq!(get_icon_for_folder("./src"), Some(1054));
-        assert_eq!(get_icon_for_folder("./tests"), Some(1084));
+        assert_eq!(get_icon_for_folder("./.github"), Ok(862));
+        assert_eq!(get_icon_for_folder("./src"), Ok(1054));
+        assert_eq!(get_icon_for_folder("./tests"), Ok(1084));
     }
 }
