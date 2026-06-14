@@ -56,3 +56,10 @@ But, it lays the path for extending HTTP-layer errors for the future work, those
 Monitoring - metrics/OTEL are amiss at the moment.
 Software is not configurable, everything is hardcoded, that's to be changed, likely with Clap.
 There's no way to update the icons at the moment.
+
+P.S. There's this little repetition that upsets me:
+```Rust
+    let path = path.as_ref();
+    let basename = path.file_name().ok_or(IconError::InvalidPath)?;
+```
+It's hard to squeeze it to a function because it must return reference, but it doesn't feel worth a macro.
